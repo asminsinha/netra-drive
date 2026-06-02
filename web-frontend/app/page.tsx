@@ -26,6 +26,7 @@ interface TelemetryData {
 }
 
 export default function DashboardPage() {
+  const WS_ENDPOINT = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/api/v1/stream';
   const { data, isConnected } = useWebSocket('ws://localhost:8000/api/v1/stream') as { 
     data: TelemetryData | null; 
     isConnected: boolean; 
@@ -406,7 +407,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Video Streaming Window Frame */}
-      <div className="fixed bottom-5 right-5 w-60 bg-slate-900/90 backdrop-blur-md border border-slate-800 p-2 rounded-xl shadow-2xl z-50">
+      <div className="fixed bottom-5 right-5 w-60 bg-slate-900/90 border border-slate-800 p-2 rounded-xl shadow-2xl z-50">
         <div className="flex items-center justify-between w-full mb-1.5">
           <span className="text-[9px] font-bold text-slate-400 tracking-widest uppercase flex items-center gap-1">
             <Video className="w-3 h-3 text-emerald-400" /> Live AI Engine Stream
@@ -419,7 +420,7 @@ export default function DashboardPage() {
         <div className="relative overflow-hidden rounded-lg border border-slate-800 bg-black w-full aspect-video">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img 
-            src="http://localhost:8000/api/v1/video_feed" 
+            src={process.env.NEXT_PUBLIC_WS_URL ? process.env.NEXT_PUBLIC_WS_URL.replace('wss://', 'https://').replace('/ws', '/api/v1/video_feed') : "http://localhost:8000/api/v1/video_feed"} 
             alt="NetraDrive Feed"
             className="w-full h-full object-cover transform scale-x-[-1]"
             onError={(e) => {
