@@ -27,7 +27,7 @@ interface TelemetryData {
 
 export default function DashboardPage() {
   const WS_ENDPOINT = process.env.NEXT_PUBLIC_WS_URL || 'wss://asminsinha2005-netra-drive-backend.hf.space/ws';
-  const { data, isConnected } = useWebSocket('ws://localhost:8000/api/v1/stream') as { 
+  const { data, isConnected } = useWebSocket(WS_ENDPOINT) as { 
     data: TelemetryData | null; 
     isConnected: boolean; 
   };
