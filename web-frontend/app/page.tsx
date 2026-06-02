@@ -26,7 +26,7 @@ interface TelemetryData {
 }
 
 export default function DashboardPage() {
-  const WS_ENDPOINT = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/api/v1/stream';
+  const WS_ENDPOINT = process.env.NEXT_PUBLIC_WS_URL || 'wss://asminsinha2005-netra-drive-backend.hf.space/ws';
   const { data, isConnected } = useWebSocket('ws://localhost:8000/api/v1/stream') as { 
     data: TelemetryData | null; 
     isConnected: boolean; 
@@ -420,7 +420,7 @@ export default function DashboardPage() {
         <div className="relative overflow-hidden rounded-lg border border-slate-800 bg-black w-full aspect-video">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img 
-            src={process.env.NEXT_PUBLIC_WS_URL ? process.env.NEXT_PUBLIC_WS_URL.replace('wss://', 'https://').replace('/ws', '/api/v1/video_feed') : "http://localhost:8000/api/v1/video_feed"} 
+            src={process.env.NEXT_PUBLIC_WS_URL ? process.env.NEXT_PUBLIC_WS_URL.replace('wss://', 'https://').replace('/ws', '/api/v1/video_feed') : "https://asminsinha2005-netra-drive-backend.hf.space/api/v1/video_feed"}
             alt="NetraDrive Feed"
             className="w-full h-full object-cover transform scale-x-[-1]"
             onError={(e) => {
