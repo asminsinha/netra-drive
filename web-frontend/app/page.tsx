@@ -100,18 +100,19 @@ interface TelemetryData {
       return [...prev, newEntry].slice(-50);
     });
   }, [data]);
+
+    //-----------------------
   React.useEffect(() => {
     let stream: MediaStream | null = null;
     let frameInterval: NodeJS.Timeout | null = null;
+    let isProcessingFrame = false; // Guard to stop simultaneous overlapping uploads
 
     async function initBrowserWebcam() {
-      // If the fallback image stream is explicitly disconnected or missing, tap local devices
       if (!isConnected) return;
       
       try {
-        // Forces front-facing selfie camera on mobile devices; standard webcam on laptops
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: 640, height: 480 }
+          video: { facingMode: "user", width: 480, height: 360 } // Downsampled resolution to minimize data size
         });
         
         if (videoRef.current) {
@@ -121,33 +122,44 @@ interface TelemetryData {
 
         const apiEndpoint = WS_ENDPOINT.replace('wss://', 'https://').replace('ws://', 'http://').replace('/ws', '/api/v1/process_webcam_frame');
 
-        // Loop worker capturing frames every 100ms (~10 FPS to preserve mobile network bandwidth)
+        // Lower frequency to 250ms (~4 FPS) giving the Hugging Face space time to finish computation loops
         frameInterval = setInterval(() => {
           if (!canvasRef.current || !videoRef.current || videoRef.current.readyState !== 4) return;
+          if (isProcessingFrame) return; // Skip frame drop if the server is currently crunching data
           
+          isProcessingFrame = true;
           const canvas = canvasRef.current;
           const ctx = canvas.getContext('2d');
-          if (!ctx) return;
+          if (!ctx) { isProcessingFrame = false; return; }
 
           canvas.width = videoRef.current.videoWidth;
           canvas.height = videoRef.current.videoHeight;
           ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
 
           canvas.toBlob(async (blob) => {
-            if (!blob) return;
+            if (!blob) { isProcessingFrame = false; return; }
             const formData = new FormData();
             formData.append('file', blob, 'frame.jpg');
 
             try {
-              await fetch(apiEndpoint, { method: 'POST', body: formData });
+              const response = await fetch(apiEndpoint, { 
+                method: 'POST', 
+                body: formData,
+                headers: { 'Accept': 'application/json' }
+              });
+              if (!response.ok) {
+                console.log("Server buffer full, skipping packet frame dropping sequence.");
+              }
             } catch (err) {
               console.error("Webcam packet delivery failed:", err);
+            } finally {
+              isProcessingFrame = false; // Unlock frame loop execution safety guard
             }
-          }, 'image/jpeg', 0.6);
-        }, 100);
+          }, 'image/jpeg', 0.4); // Dropped quality compression matrix to 0.4 for instantaneous payload delivery
+        }, 250);
 
       } catch (err) {
-        console.error("Local device webcam not active or locked, utilizing default stream pipeline fallback.",err);
+        console.log("Local device webcam not active or locked, utilizing default stream pipeline fallback.", err);
         setUsingWebcam(false);
       }
     }
@@ -160,6 +172,8 @@ interface TelemetryData {
     };
   }, [isConnected, WS_ENDPOINT]);
 
+
+    //-------------------------------------
   const calculateMean = (arr: number[]) => arr.length ? (arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1) : "0.0";
   const calculateMedian = (arr: number[]) => {
     if (!arr.length) return "0.0";
