@@ -25,16 +25,31 @@ interface TelemetryData {
   xai_explanation: string;
 }
 
-export default function DashboardPage() {
+//-------------------------------------------------------------------
+/*export default function DashboardPage() {
   const WS_ENDPOINT = process.env.NEXT_PUBLIC_WS_URL || 'wss://asminsinha2005-netra-drive-backend.hf.space/ws';
+  const { data, isConnected } = useWebSocket(WS_ENDPOINT) as { 
+    data: TelemetryData | null; 
+    isConnected: boolean; 
+  };*/
+
+  export default function DashboardPage() {
+  // RECTIFICATION: Uses local development socket string as fallback if env variables aren't active
+  const WS_ENDPOINT = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/ws';
+  
   const { data, isConnected } = useWebSocket(WS_ENDPOINT) as { 
     data: TelemetryData | null; 
     isConnected: boolean; 
   };
 
+//---------------------------------------------------------------
+
   const [history, setHistory] = React.useState<any[]>([]);
   const [telemetryLedger, setTelemetryLedger] = React.useState<any[]>([]);
   const lastProcessedTime = React.useRef<number>(0);
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
+  const [usingWebcam, setUsingWebcam] = React.useState<boolean>(false);
 
   // Compute uniform, safe layout metrics to shield against backend scale variance
   const fatigueValue = data?.fatigue_probability ?? 0.0;
@@ -85,6 +100,65 @@ export default function DashboardPage() {
       return [...prev, newEntry].slice(-50);
     });
   }, [data]);
+  React.useEffect(() => {
+    let stream: MediaStream | null = null;
+    let frameInterval: NodeJS.Timeout | null = null;
+
+    async function initBrowserWebcam() {
+      // If the fallback image stream is explicitly disconnected or missing, tap local devices
+      if (!isConnected) return;
+      
+      try {
+        // Forces front-facing selfie camera on mobile devices; standard webcam on laptops
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: 640, height: 480 }
+        });
+        
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          setUsingWebcam(true);
+        }
+
+        const apiEndpoint = WS_ENDPOINT.replace('wss://', 'https://').replace('ws://', 'http://').replace('/ws', '/api/v1/process_webcam_frame');
+
+        // Loop worker capturing frames every 100ms (~10 FPS to preserve mobile network bandwidth)
+        frameInterval = setInterval(() => {
+          if (!canvasRef.current || !videoRef.current || videoRef.current.readyState !== 4) return;
+          
+          const canvas = canvasRef.current;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+
+          canvas.width = videoRef.current.videoWidth;
+          canvas.height = videoRef.current.videoHeight;
+          ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+
+          canvas.toBlob(async (blob) => {
+            if (!blob) return;
+            const formData = new FormData();
+            formData.append('file', blob, 'frame.jpg');
+
+            try {
+              await fetch(apiEndpoint, { method: 'POST', body: formData });
+            } catch (err) {
+              console.error("Webcam packet delivery failed:", err);
+            }
+          }, 'image/jpeg', 0.6);
+        }, 100);
+
+      } catch (err) {
+        console.error("Local device webcam not active or locked, utilizing default stream pipeline fallback.",err);
+        setUsingWebcam(false);
+      }
+    }
+
+    initBrowserWebcam();
+
+    return () => {
+      if (stream) stream.getTracks().forEach(track => track.stop());
+      if (frameInterval) clearInterval(frameInterval);
+    };
+  }, [isConnected, WS_ENDPOINT]);
 
   const calculateMean = (arr: number[]) => arr.length ? (arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1) : "0.0";
   const calculateMedian = (arr: number[]) => {
@@ -410,7 +484,7 @@ export default function DashboardPage() {
       <div className="fixed bottom-5 right-5 w-60 bg-slate-900/90 border border-slate-800 p-2 rounded-xl shadow-2xl z-50">
         <div className="flex items-center justify-between w-full mb-1.5">
           <span className="text-[9px] font-bold text-slate-400 tracking-widest uppercase flex items-center gap-1">
-            <Video className="w-3 h-3 text-emerald-400" /> Live AI Engine Stream
+            <Video className="w-3 h-3 text-emerald-400" /> {usingWebcam ? "LOCAL DEVICE WEBCAM" : "LIVE AI ENGINE STREAM"}
           </span>
           <span className="flex h-1.5 w-1.5 relative">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -418,15 +492,30 @@ export default function DashboardPage() {
           </span>
         </div>
         <div className="relative overflow-hidden rounded-lg border border-slate-800 bg-black w-full aspect-video">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img 
-            src={process.env.NEXT_PUBLIC_WS_URL ? process.env.NEXT_PUBLIC_WS_URL.replace('wss://', 'https://').replace('/ws', '/api/v1/video_feed') : "https://asminsinha2005-netra-drive-backend.hf.space/api/v1/video_feed"}
-            alt="NetraDrive Feed"
-            className="w-full h-full object-cover transform scale-x-[-1]"
-            onError={(e) => {
-              e.currentTarget.src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=600";
-            }}
-          />
+          {/* Hidden components for capturing frame matrices from the user side */}
+          <canvas ref={canvasRef} className="hidden" />
+          <video ref={videoRef} autoPlay playsInline muted className="hidden" />
+
+          {/* Conditional toggle: displays browser webcam if running live, or backend MJPEG if testing locally */}
+          {usingWebcam ? (
+            <video
+              autoPlay
+              playsInline
+              muted
+              ref={(el) => { if (el) el.srcObject = videoRef.current?.srcObject || null; }}
+              className="w-full h-full object-cover transform scale-x-[-1]"
+            />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img 
+              src={WS_ENDPOINT.includes('localhost') ? "http://localhost:8000/api/v1/video_feed" : "https://asminsinha2005-netra-drive-backend.hf.space/api/v1/video_feed"}
+              alt="NetraDrive Feed"
+              className="w-full h-full object-cover transform scale-x-[-1]"
+              onError={(e) => {
+                e.currentTarget.src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=600";
+              }}
+            />
+          )}
         </div>
       </div>
     </main>
