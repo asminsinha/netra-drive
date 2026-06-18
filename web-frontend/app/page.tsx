@@ -25,13 +25,6 @@ interface TelemetryData {
   xai_explanation: string;
 }
 
-//-------------------------------------------------------------------
-/*export default function DashboardPage() {
-  const WS_ENDPOINT = process.env.NEXT_PUBLIC_WS_URL || 'wss://asminsinha2005-netra-drive-backend.hf.space/ws';
-  const { data, isConnected } = useWebSocket(WS_ENDPOINT) as { 
-    data: TelemetryData | null; 
-    isConnected: boolean; 
-  };*/
 
   export default function DashboardPage() {
   // RECTIFICATION: Uses local development socket string as fallback if env variables aren't active
@@ -67,18 +60,18 @@ interface TelemetryData {
     if (!data) return;
 
     const now = Date.now();
-    // 3-second update throttle window to maintain high render efficiency
+    
     if (now - lastProcessedTime.current < 3000) return;
     lastProcessedTime.current = now;
 
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-    // Window scaling normalization
+    
     const currentFatigue = data.fatigue_probability <= 1.0 ? data.fatigue_probability * 100 : data.fatigue_probability;
     const currentAttention = data.attention_score <= 1.0 ? data.attention_score * 100 : data.attention_score;
     const microSleeps = data.micro_sleep_incidents ?? 0;
 
-    // 1. Update Tracking Charts
+    
     setHistory((prev) => {
       const updated = [...prev, { 
         time: timestamp, 
@@ -88,7 +81,7 @@ interface TelemetryData {
       return updated.slice(-20);
     });
 
-    // 2. Append directly to Verification Ledger
+    
     setTelemetryLedger((prev) => {
       const newEntry = {
         time: timestamp,
@@ -102,7 +95,7 @@ interface TelemetryData {
   }, [data]);
 
     //-----------------------
-  // NEW: Optimized hardware activation loop with automatic backend calibration reset triggers
+  
   React.useEffect(() => {
     let stream: MediaStream | null = null;
     let frameInterval: NodeJS.Timeout | null = null;
@@ -111,7 +104,7 @@ interface TelemetryData {
     async function initBrowserWebcam() {
       if (!isConnected) return;
 
-      // FIX: Force backend calibration algorithms to reset automatically every time the app opens or reloads
+      // FIX
       try {
         const resetEndpoint = WS_ENDPOINT.replace('wss://', 'https://').replace('ws://', 'http://').replace('/ws', '/api/v1/reset_calibration');
         fetch(resetEndpoint, { method: 'POST' }).catch(e => console.log("Calibration auto-reset dispatched."));
@@ -131,10 +124,10 @@ interface TelemetryData {
 
         const apiEndpoint = WS_ENDPOINT.replace('wss://', 'https://').replace('ws://', 'http://').replace('/ws', '/api/v1/process_webcam_frame');
 
-        // Lower frequency to 250ms (~4 FPS) giving the Hugging Face space time to finish computation loops
+   
         frameInterval = setInterval(() => {
           if (!canvasRef.current || !videoRef.current || videoRef.current.readyState !== 4) return;
-          if (isProcessingFrame) return; // Skip frame drop if the server is currently crunching data
+          if (isProcessingFrame) return; 
           
           isProcessingFrame = true;
           const canvas = canvasRef.current;
@@ -162,9 +155,9 @@ interface TelemetryData {
             } catch (err) {
               console.error("Webcam packet delivery failed:", err);
             } finally {
-              isProcessingFrame = false; // Unlock frame loop execution safety guard
+              isProcessingFrame = false;
             }
-          }, 'image/jpeg', 0.4); // Dropped quality compression matrix to 0.4 for instantaneous payload delivery
+          }, 'image/jpeg', 0.4); 
         }, 250);
 
       } catch (err) {
@@ -212,69 +205,66 @@ interface TelemetryData {
     const attentionList = telemetryLedger.map(l => l.attention);
     const totalMicroSleeps = telemetryLedger.length > 0 ? telemetryLedger[telemetryLedger.length - 1].sleeps : 0;
 
-    // --- NEW: DYNAMIC OVERALL SESSION PERFORMANCE DIAGNOSTIC ANALYZER ---
-    // --- REVISED: MULTI-VARIABLE TELEMETRY VALIDATION ENGINE ---
+    
     const generateSessionTrendInsight = (): string => {
       if (!telemetryLedger.length) return "DATA UNAVAILABLE: Insufficient session telemetry records compiled to compute baseline risk analytics.";
 
       const meanFatigue = telemetryLedger.reduce((sum, item) => sum + item.fatigue, 0) / telemetryLedger.length;
       const meanAttention = telemetryLedger.reduce((sum, item) => sum + item.attention, 0) / telemetryLedger.length;
 
-      // Extract current tail telemetry to evaluate immediate real-time directional trends
+    
       const finalRecord = telemetryLedger[telemetryLedger.length - 1];
       const currentFatigue = finalRecord.fatigue;
       const currentAttention = finalRecord.attention;
 
-      // 1. CRITICAL TRUE FATIGUE (High Micro-Sleeps AND High/Moderate Average Fatigue)
+      
       if (totalMicroSleeps >= 5 && meanFatigue >= 30.0) {
         return `CRITICAL SYSTEM ALARM: Severe behavioral risk. The driver triggered ${totalMicroSleeps} microsleep incidents, matching an elevated mean fatigue index of ${meanFatigue.toFixed(1)}%. True compounding neurological fatigue is confirmed across this log block. Immediate dispatch safety intervention required.`;
       }
 
-      // 2. HIGH TRANSIENT LAPSE OR SENSOR FLICKER (High Micro-Sleeps BUT Low Average Fatigue & High Attention)
+      
       if (totalMicroSleeps >= 5 && meanFatigue < 30.0 && meanAttention >= 85.0) {
         return `NOMINAL STATE WITH TRANSIENT ANOMALIES: Log tracking indicates ${totalMicroSleeps} isolated micro-sleep flags; however, the session baseline shows exceptional focus (${meanAttention.toFixed(1)}%) and low overall fatigue (${meanFatigue.toFixed(1)}%). Incidents are categorized as momentary blinks or potential camera tracking fluctuations rather than systemic exhaustion. Continuous monitoring active.`;
       }
 
-      // 3. COMPOUNDING MIXED RISK (Moderate Fatigue AND Distraction with Micro-Sleeps present)
+     
       if (meanFatigue >= 25.0 && meanAttention < 75.0) {
         return `COMPLIANCE WARNING (MIXED PROFILE DEGRADATION): Intersecting risk markers detected. Driver attention is drifting below baseline standards (Mean: ${meanAttention.toFixed(1)}%) while rolling fatigue metrics have settled at an elevated ${meanFatigue.toFixed(1)}% with ${totalMicroSleeps} micro-lapses recorded. Systemic drowsiness is beginning to impair active roadway focus.`;
       }
 
-      // 4. PURE SUSTAINED INATTENTION / DISTRACTION (Low Attention, regardless of micro-sleeps)
+      
       if (meanAttention < 70.0) {
         return `COMPLIANCE WARNING (DISTRACTION): Persistent off-road gaze vectors detected. Driver operated with an average attentiveness focus rating of ${meanAttention.toFixed(1)}% over the compiled timeline. Visual detachment violates fleet safety guidelines, despite nominal baseline fatigue metrics (${meanFatigue.toFixed(1)}%).`;
       }
 
-      // 5. PURE DROWSINESS ONSET (High rolling fatigue index, low micro-sleep spikes)
+     
       if (meanFatigue > 40.0) {
         return `MANAGEMENT NOTICE (DROWSINESS): Heavy systemic fatigue patterns observed. Mean session fatigue is tracking at ${meanFatigue.toFixed(1)}%. Saccadic behavior rhythms indicate steady stamina degradation. Scheduling a mandatory vehicle rest break is strongly advised.`;
       }
 
-      // === NEW INTEL RULES ADDED BELOW (NON-REDUNDANT PREDICTIVE TRENDS) ===
-
-      // 6. HYPER-VIGILANCE COGNITIVE TUNNELING (Fixated gaze masking progressive exhaustion)
+      
       if (meanFatigue >= 22.0 && meanAttention >= 95.0) {
         return `OPERATIONAL NOTICE (COGNITIVE TUNNELING): Driver exhibits an unusually high, rigid attention vector (${meanAttention.toFixed(1)}%) alongside an ascending baseline fatigue index (${meanFatigue.toFixed(1)}%). This behavioral pattern typically correlates with exhausted 'staring' or cognitive fixation, where normal mirror-scanning frequencies drop as the operator fights fatigue.`;
       }
 
-      // 7. REAL-TIME RETAIL STABILIZATION TREND (Session was messy, but driver is sharpening focus right now)
+      
       if (meanFatigue > 20.0 && currentFatigue < meanFatigue && currentAttention > meanAttention) {
         return `ANALYTICAL UPDATE (ALERTNESS STABILIZATION): While historical session averages show baseline degradation tokens (Mean Fatigue: ${meanFatigue.toFixed(1)}%), current real-time telemetry indicates an active recovery trend. Immediate metrics have stabilized to ${currentFatigue.toFixed(1)}% fatigue and ${currentAttention.toFixed(0)}% attention. No manual break required yet; tracking trajectory closely.`;
       }
 
-      // 8. PROGRESSIVE DEGRADATION SLIP (Session averages look fine, but real-time tail data is plummeting)
+      
       if (meanFatigue <= 20.0 && currentFatigue > (meanFatigue + 10.0)) {
         return `ANALYTICAL ALERT (PROGRESSIVE ONSET): Overall session averages present a clean compliance profile, but immediate real-time telemetry shows a sharp downward trajectory. Fatigue has rapidly spiked to ${currentFatigue.toFixed(1)}% over the last few intervals. Early-stage exhaustion or distraction is actively materializing.`;
       }
 
-      // 9. IDEAL COMPLIANCE RATING (Everything within green bounds)
+      
       return `EXCELLENT COMPLIANCE RATING: Driver demonstrated exceptional performance over this 50-frame validation block. Maintained a steady defensive road focus rating of ${meanAttention.toFixed(1)}% with negligible baseline fatigue markers (${meanFatigue.toFixed(1)}%). No active risk tracking violations recorded.`;
     };
 
     const sessionXaiInsight = generateSessionTrendInsight();
     // --------------------------------------------------------------------
 
-    // Document Header Frame Setup
+    
     doc.setFillColor(15, 23, 42); 
     doc.rect(0, 0, 210, 38, 'F');
     
@@ -288,7 +278,7 @@ interface TelemetryData {
     doc.setFont("helvetica", "normal");
     doc.text(`Generated Session Stamp: ${new Date().toLocaleString()} | Active Records Compiled: ${telemetryLedger.length}/50`, 14, 31);
 
-    // Section 1 - Profile Statistics Text Data Rows
+   
     doc.setTextColor(15, 23, 42);
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
@@ -300,7 +290,6 @@ interface TelemetryData {
     doc.text(`• Attentiveness Focus Rating -> Current: ${displayAttentionPercent.toFixed(0)}% | Mean: ${calculateMean(attentionList)}% | Median: ${calculateMedian(attentionList)}% | Mode: ${calculateMode(attentionList)}%`, 16, 69);
     doc.text(`• Total Accounted Micro-Sleep Flags: ${totalMicroSleeps} cumulative loop violations recorded`, 16, 76);
 
-    // Section 2 - Model XAI Neural Diagnosis (Optimized with Summary Evaluation Block)
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     doc.text("2. Model XAI Neural Diagnosis", 14, 92);
@@ -311,11 +300,9 @@ interface TelemetryData {
     doc.setFont("helvetica", "italic");
     doc.setTextColor(71, 85, 105);
     
-    // Split and inject our newly generated multi-record session trend evaluation block
     const wrappedText = doc.splitTextToSize(sessionXaiInsight, 174);
     doc.text(wrappedText, 18, 103);
 
-    // Section 3 - Ledger Compilation Window Setup
     doc.setTextColor(15, 23, 42);
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
@@ -401,31 +388,31 @@ interface TelemetryData {
         </div>
       </header>
 
-      {/* Dynamic Driver Kinetics Calibration Loading Module Overlay */}
-      {data?.calibrating === 1.0 && (
-        <div className="w-full bg-slate-900/80 border border-emerald-500/30 rounded-xl p-5 backdrop-blur-md mb-5 animate-pulse">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-emerald-400 tracking-wider uppercase flex items-center gap-2">
-              <Gauge className="w-4 h-4 animate-spin text-emerald-400" /> Initializing Driver Kinetics Baseline...
-            </span>
-            <span className="text-xs font-black text-emerald-400 font-mono">
-              {Math.round((data?.calibration_progress ?? 0) * 100)}%
-            </span>
-          </div>
-          <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-            <div 
-              className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full transition-all duration-300 ease-out"
-              style={{ width: `${(data?.calibration_progress ?? 0) * 100}%` }}
-            />
-          </div>
-          <p className="text-[11px] text-slate-400 mt-2 italic tracking-wide">
-            Please watch the roadway vectors ahead naturally. Calibrating geometric mesh nodes and historical dynamic EAR baseline distributions...
-          </p>
-        </div>
-      )}
+      {/* Dynamic Driver Kinetics Calibration Loading */}
+{data?.calibrating === 1.0 && (
+  <div className="w-full bg-slate-900/80 border border-yellow-500/30 rounded-xl p-5 backdrop-blur-md mb-5 animate-pulse">
+    <div className="flex items-center justify-between mb-2">
+      <span className="text-xs font-bold text-yellow-500 tracking-wider uppercase flex items-center gap-2">
+        <Gauge className="w-4 h-4 animate-spin text-yellow-500" /> Initializing Driver Kinetics Baseline...
+      </span>
+      <span className="text-xs font-black text-yellow-500 font-mono">
+        {Math.round((data?.calibration_progress ?? 0) * 100)}%
+      </span>
+    </div>
+    <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+      <div 
+        className="bg-gradient-to-r from-yellow-500 to-amber-400 h-full transition-all duration-300 ease-out"
+        style={{ width: `${(data?.calibration_progress ?? 0) * 100}%` }}
+      />
+    </div>
+    <p className="text-[11px] text-slate-400 mt-2 italic tracking-wide">
+      Please watch the roadway vectors ahead naturally. Calibrating geometric mesh nodes and historical dynamic EAR baseline distributions...
+    </p>
+  </div>
+)}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Metric 1 - Fatigue Indicator */}
+        {/* Fatigue Indicator */}
         <div className="bg-slate-900 border border-slate-800/80 rounded-xl p-4 shadow-md">
           <div className="flex justify-between items-start mb-2">
             <div>
@@ -444,7 +431,7 @@ interface TelemetryData {
           </div>
         </div>
 
-        {/* Metric 2 - Attention Indicator */}
+        {/* attention Indicator */}
         <div className="bg-slate-900 border border-slate-800/80 rounded-xl p-4 shadow-md">
           <div className="flex justify-between items-start mb-2">
             <div>
@@ -463,7 +450,7 @@ interface TelemetryData {
           </div>
         </div>
 
-        {/* Micro Sleep Incident Box */}
+        
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-md flex items-center gap-4 lg:col-span-2">
           <div className="p-3 rounded-lg bg-rose-950/40 border border-rose-800/30">
             <EyeOff className="w-6 h-6 text-rose-400" />
@@ -515,10 +502,10 @@ interface TelemetryData {
           </span>
         </div>
         <div className="relative overflow-hidden rounded-lg border border-slate-800 bg-black w-full aspect-video">
-          {/* Hidden computation components for rendering background pixel transformations */}
+          
           <canvas ref={canvasRef} className="hidden" />
           
-          {/* FIX: Keep this main video element visible if using user camera feed to stop flickering completely */}
+          
           <video 
             ref={videoRef} 
             autoPlay 
@@ -527,7 +514,7 @@ interface TelemetryData {
             className={`w-full h-full object-cover transform scale-x-[-1] ${usingWebcam ? 'block' : 'hidden'}`} 
           />
 
-          {/* Fallback image layer strictly initialized when backend proxy feeds are selected instead */}
+          
           {!usingWebcam && (
             // eslint-disable-next-line @next/next/no-img-element
             <img 
