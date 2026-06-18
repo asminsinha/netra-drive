@@ -102,17 +102,26 @@ interface TelemetryData {
   }, [data]);
 
     //-----------------------
+  // NEW: Optimized hardware activation loop with automatic backend calibration reset triggers
   React.useEffect(() => {
     let stream: MediaStream | null = null;
     let frameInterval: NodeJS.Timeout | null = null;
-    let isProcessingFrame = false; // Guard to stop simultaneous overlapping uploads
+    let isProcessingFrame = false;
 
     async function initBrowserWebcam() {
       if (!isConnected) return;
+
+      // FIX: Force backend calibration algorithms to reset automatically every time the app opens or reloads
+      try {
+        const resetEndpoint = WS_ENDPOINT.replace('wss://', 'https://').replace('ws://', 'http://').replace('/ws', '/api/v1/reset_calibration');
+        fetch(resetEndpoint, { method: 'POST' }).catch(e => console.log("Calibration auto-reset dispatched."));
+      } catch (e) {
+        console.error("Failed to signal backend calibration engine reset:", e);
+      }
       
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: 480, height: 360 } // Downsampled resolution to minimize data size
+          video: { facingMode: "user", width: 480, height: 360 }
         });
         
         if (videoRef.current) {
@@ -506,20 +515,20 @@ interface TelemetryData {
           </span>
         </div>
         <div className="relative overflow-hidden rounded-lg border border-slate-800 bg-black w-full aspect-video">
-          {/* Hidden components for capturing frame matrices from the user side */}
+          {/* Hidden computation components for rendering background pixel transformations */}
           <canvas ref={canvasRef} className="hidden" />
-          <video ref={videoRef} autoPlay playsInline muted className="hidden" />
+          
+          {/* FIX: Keep this main video element visible if using user camera feed to stop flickering completely */}
+          <video 
+            ref={videoRef} 
+            autoPlay 
+            playsInline 
+            muted 
+            className={`w-full h-full object-cover transform scale-x-[-1] ${usingWebcam ? 'block' : 'hidden'}`} 
+          />
 
-          {/* Conditional toggle: displays browser webcam if running live, or backend MJPEG if testing locally */}
-          {usingWebcam ? (
-            <video
-              autoPlay
-              playsInline
-              muted
-              ref={(el) => { if (el) el.srcObject = videoRef.current?.srcObject || null; }}
-              className="w-full h-full object-cover transform scale-x-[-1]"
-            />
-          ) : (
+          {/* Fallback image layer strictly initialized when backend proxy feeds are selected instead */}
+          {!usingWebcam && (
             // eslint-disable-next-line @next/next/no-img-element
             <img 
               src={WS_ENDPOINT.includes('localhost') ? "http://localhost:8000/api/v1/video_feed" : "https://asminsinha2005-netra-drive-backend.hf.space/api/v1/video_feed"}
